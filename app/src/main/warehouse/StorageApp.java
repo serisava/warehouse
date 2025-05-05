@@ -16,6 +16,7 @@ import warehouse.model.Product;
 import warehouse.model.Rack;
 import warehouse.model.RackType;
 import warehouse.model.StorageZone;
+import warehouse.model.Product.Builder;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -124,8 +125,9 @@ public class StorageApp extends Application {
         form.add(heightField, 1, 2);
         form.add(new Label("Depth:"), 0, 3);
         form.add(depthField, 1, 3);
+        // Удаляем поле выбора стеллажа для добавления, так как оно теперь автоматическое
         form.add(new Label("Rack:"), 0, 4);
-        form.add(rackCombo, 1, 4);
+        form.add(rackCombo, 1, 4); // Оставляем ComboBox для редактирования
 
         // Кнопки управления
         Button addButton = new Button("Add Product");
@@ -137,19 +139,39 @@ public class StorageApp extends Application {
         // Обработчики кнопок
         addButton.setOnAction(e -> {
             try {
-                Product product = new Product(
-                        UUID.randomUUID().toString(),
-                        nameField.getText(),
-                        Double.parseDouble(widthField.getText()),
-                        Double.parseDouble(heightField.getText()),
-                        Double.parseDouble(depthField.getText()),
-                        rackCombo.getValue()
-                );
+                Builder builderProduct = new Builder();
+                builderProduct.setId(UUID.randomUUID().toString());
+                builderProduct.setName(nameField.getText());
+
+                builderProduct.setWidth(Double.parseDouble(widthField.getText()));
+                builderProduct.setHeight(Double.parseDouble(heightField.getText()));
+                builderProduct.setDepth(Double.parseDouble(depthField.getText()));
+
+                
+                Product product = new Product(builderProduct);    
+
+                // Поиск подходящего стеллажа
+                List<Rack> racks = dbManager.getAllRacks();
+                
+                for (Rack rack : racks) {
+                    if (rack.getType() == product.getSize()) {
+                        product.setRackId(rack.getId());
+                        break;
+                    }
+                }                
+
+                if (product.getRackId() == null) {
+                    showAlert("Error", "No available rack of type " + product.getSize() + ".");
+                    return;
+                }
                 dbManager.addProduct(product);
                 productTable.setItems(FXCollections.observableArrayList(dbManager.getAllProducts()));
                 clearForm(nameField, widthField, heightField, depthField, rackCombo);
             } catch (SQLException | NumberFormatException ex) {
                 showAlert("Error", "Invalid input or database error.");
+            } catch (IllegalArgumentException exception) {
+                showAlert("Error", exception.getMessage());
+                return;
             }
         });
 
@@ -282,7 +304,7 @@ public class StorageApp extends Application {
                     productLabel.setFill(Color.BLACK);
 
                     rackPane.getChildren().addAll(productRect, productLabel);
-                    yOffset += productHeightPx + 10; // Отступ между товарами
+                    yOffset += productHeightPx + 20; // Отступ между товарами
                 }
                 xOffset += RACK_WIDTH_PX + 20;
             }

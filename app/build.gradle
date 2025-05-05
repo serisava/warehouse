@@ -4,6 +4,8 @@ plugins {
     id 'org.openjfx.javafxplugin' version '0.1.0'
 }
 
+group = 'warehouse'
+
 repositories {
     mavenCentral()
 }
@@ -12,6 +14,8 @@ dependencies {
     implementation 'org.openjfx:javafx-controls:21'
     implementation 'org.openjfx:javafx-fxml:21'
     implementation 'com.h2database:h2:2.2.224'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.12.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 javafx {
@@ -28,5 +32,18 @@ sourceSets {
         java {
             srcDirs = ['src/main']
         }
+    }
+    test {
+        java{
+            srcDirs = ['src/test']
+        }
+    }
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
     }
 }
