@@ -77,6 +77,7 @@ public class StorageApp extends Application {
         TableColumn<Product, String> rackCol = new TableColumn<>("Rack ID");
         rackCol.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getRackId()));
         productTable.getColumns().addAll(idCol, nameCol, widthCol, heightCol, depthCol, rackCol);
+        
 
         // Загрузка данных в таблицу
         try {
@@ -111,7 +112,7 @@ public class StorageApp extends Application {
         TextField depthField = new TextField();
         ComboBox<String> rackCombo = new ComboBox<>();
         try {
-            List<Rack> racks = dbManager.getAllRacks();
+            List<Rack> racks = dbManager.getFreeRacks();
             rackCombo.setItems(FXCollections.observableArrayList(racks.stream().map(Rack::getId).toList()));
         } catch (SQLException e) {
             showAlert("Error", "Failed to load racks.");
@@ -133,8 +134,9 @@ public class StorageApp extends Application {
         Button addButton = new Button("Add Product");
         Button updateButton = new Button("Update Product");
         Button deleteButton = new Button("Delete Product");
+        Button clearButton = new Button("Clear");
 
-        HBox buttonBox = new HBox(10, addButton, updateButton, deleteButton);
+        HBox buttonBox = new HBox(10, addButton, updateButton, deleteButton, clearButton);
 
         // Обработчики кнопок
         addButton.setOnAction(e -> {
@@ -166,6 +168,8 @@ public class StorageApp extends Application {
                 }
                 dbManager.addProduct(product);
                 productTable.setItems(FXCollections.observableArrayList(dbManager.getAllProducts()));
+                racks = dbManager.getFreeRacks();
+                rackCombo.setItems(FXCollections.observableArrayList(racks.stream().map(Rack::getId).toList()));
                 clearForm(nameField, widthField, heightField, depthField, rackCombo);
             } catch (SQLException | NumberFormatException ex) {
                 showAlert("Error", "Invalid input or database error.");
@@ -189,6 +193,8 @@ public class StorageApp extends Application {
                     );
                     dbManager.updateProduct(updatedProduct);
                     productTable.setItems(FXCollections.observableArrayList(dbManager.getAllProducts()));
+                    List<Rack> racks = dbManager.getFreeRacks();
+                    rackCombo.setItems(FXCollections.observableArrayList(racks.stream().map(Rack::getId).toList()));
                     clearForm(nameField, widthField, heightField, depthField, rackCombo);
                 } catch (SQLException | NumberFormatException ex) {
                     showAlert("Error", "Invalid input or database error.");
@@ -202,6 +208,8 @@ public class StorageApp extends Application {
                 try {
                     dbManager.deleteProduct(selected.getId());
                     productTable.setItems(FXCollections.observableArrayList(dbManager.getAllProducts()));
+                    List<Rack> racks = dbManager.getFreeRacks();
+                    rackCombo.setItems(FXCollections.observableArrayList(racks.stream().map(Rack::getId).toList()));
                 } catch (SQLException ex) {
                     showAlert("Error", "Database error.");
                 }
@@ -215,12 +223,22 @@ public class StorageApp extends Application {
                 heightField.setText(String.valueOf(newSelection.getHeight()));
                 depthField.setText(String.valueOf(newSelection.getDepth()));
                 rackCombo.setValue(newSelection.getRackId());
+                addButton.setVisible(false);
             }
+        });
+
+        clearButton.setOnAction(e -> {
+            nameField.setText("");
+            widthField.setText("");
+            heightField.setText("");
+            depthField.setText("");
+            rackCombo.setValue("");
+            addButton.setVisible(true);
         });
 
         // Правая панель (поиск, таблица, форма)
         VBox rightPane = new VBox(10, searchBox, productTable, form, buttonBox);
-        rightPane.setPrefWidth(400);
+        rightPane.setPrefWidth(500);
 
         // Сборка главного экрана
         root.setCenter(zoneBox);

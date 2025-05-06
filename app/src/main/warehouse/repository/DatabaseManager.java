@@ -29,10 +29,24 @@ public class DatabaseManager {
 
             // Вставка статических данных о зонах и стеллажах
             stmt.execute("INSERT INTO StorageZone (id, name) VALUES ('zone1', 'Zone A')");
-            stmt.execute("INSERT INTO StorageZone (id, name) VALUES ('zone2', 'Zone B')");
             stmt.execute("INSERT INTO Rack (id, type, zone_id) VALUES ('rack1', 'SMALL', 'zone1')");
             stmt.execute("INSERT INTO Rack (id, type, zone_id) VALUES ('rack2', 'MEDIUM', 'zone1')");
             stmt.execute("INSERT INTO Rack (id, type, zone_id) VALUES ('rack3', 'LARGE', 'zone1')");
+
+            stmt.execute("INSERT INTO StorageZone (id, name) VALUES ('zone2', 'Zone B')");
+            stmt.execute("INSERT INTO Rack (id, type, zone_id) VALUES ('rack4', 'SMALL', 'zone2')");
+            stmt.execute("INSERT INTO Rack (id, type, zone_id) VALUES ('rack5', 'MEDIUM', 'zone2')");
+            stmt.execute("INSERT INTO Rack (id, type, zone_id) VALUES ('rack6', 'LARGE', 'zone2')");
+
+            stmt.execute("INSERT INTO StorageZone (id, name) VALUES ('zone3', 'Zone C')");
+            stmt.execute("INSERT INTO Rack (id, type, zone_id) VALUES ('rack7', 'SMALL', 'zone3')");
+            stmt.execute("INSERT INTO Rack (id, type, zone_id) VALUES ('rack8', 'MEDIUM', 'zone3')");
+            stmt.execute("INSERT INTO Rack (id, type, zone_id) VALUES ('rack9', 'LARGE', 'zone3')");
+
+            stmt.execute("INSERT INTO StorageZone (id, name) VALUES ('zone4', 'Zone D')");
+            stmt.execute("INSERT INTO Rack (id, type, zone_id) VALUES ('rack10', 'SMALL', 'zone4')");
+            stmt.execute("INSERT INTO Rack (id, type, zone_id) VALUES ('rack11', 'MEDIUM', 'zone4')");
+            stmt.execute("INSERT INTO Rack (id, type, zone_id) VALUES ('rack12', 'LARGE', 'zone4')");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -95,12 +109,33 @@ public class DatabaseManager {
         return products;
     }
 
+    public List<Rack> getFreeRacks() throws SQLException {
+        List<Rack> racks = new ArrayList<>();
+        String sql = "SELECT Rack.id, Rack.type, Rack.zone_id "+
+                     "FROM Rack "+
+                     "LEFT JOIN Product ON Rack.id = Product.rack_id "+
+                     "GROUP BY Rack.id "+
+                     "HAVING COUNT (Product.id) < 10";
+        try(Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql)){
+                while (rs.next()) {
+                    racks.add(new Rack(
+                            rs.getString("id"),
+                            RackType.valueOf(rs.getString("type")),
+                            rs.getString("zone_id")
+                    ));
+                }
+        }
+        return racks;
+    }
+
     public List<Rack> getAllRacks() throws SQLException {
         List<Rack> racks = new ArrayList<>();
         String sql = "SELECT * FROM Rack";
         try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 racks.add(new Rack(
                         rs.getString("id"),
