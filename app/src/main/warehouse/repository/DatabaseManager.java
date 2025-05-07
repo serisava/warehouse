@@ -7,7 +7,10 @@ import warehouse.model.StorageZone;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 public class DatabaseManager {
     private static final String DB_URL = "jdbc:h2:./warehouse;DB_CLOSE_DELAY=-1";
@@ -25,7 +28,7 @@ public class DatabaseManager {
             // Создание таблиц
             stmt.execute("CREATE TABLE IF NOT EXISTS StorageZone (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100))");
             stmt.execute("CREATE TABLE IF NOT EXISTS Rack (id VARCHAR(50) PRIMARY KEY, type VARCHAR(20), zone_id VARCHAR(50), FOREIGN KEY (zone_id) REFERENCES StorageZone(id))");
-            stmt.execute("CREATE TABLE IF NOT EXISTS Product (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100), width DOUBLE, height DOUBLE, depth DOUBLE, rack_id VARCHAR(50), FOREIGN KEY (rack_id) REFERENCES Rack(id))");
+            stmt.execute("CREATE TABLE IF NOT EXISTS Product (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100), width DOUBLE, height DOUBLE, depth DOUBLE, size VARCHAR(10), rack_id VARCHAR(50), FOREIGN KEY (rack_id) REFERENCES Rack(id))");
 
             // Вставка статических данных о зонах и стеллажах
             stmt.execute("INSERT INTO StorageZone (id, name) VALUES ('zone1', 'Zone A')");
@@ -53,7 +56,7 @@ public class DatabaseManager {
     }
 
     public void addProduct(Product product) throws SQLException {
-        String sql = "INSERT INTO Product (id, name, width, height, depth, rack_id) VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO Product (id, name, width, height, depth, rack_id, size) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, product.getId());
@@ -62,6 +65,7 @@ public class DatabaseManager {
             pstmt.setDouble(4, product.getHeight());
             pstmt.setDouble(5, product.getDepth());
             pstmt.setString(6, product.getRackId());
+            pstmt.setString(7, product.getSize().toString());
             pstmt.executeUpdate();
         }
     }
@@ -111,20 +115,21 @@ public class DatabaseManager {
 
     public List<Rack> getFreeRacks() throws SQLException {
         List<Rack> racks = new ArrayList<>();
-        String sql = "SELECT Rack.id, Rack.type, Rack.zone_id "+
+        String sql = "SELECT Rack.id, Rack.type, Rack.zone_id, COUNT(Product.id) as cnt "+
                      "FROM Rack "+
                      "LEFT JOIN Product ON Rack.id = Product.rack_id "+
-                     "GROUP BY Rack.id "+
-                     "HAVING COUNT (Product.id) < 10";
+                     "GROUP BY Rack.zone_id, Rack.type, Rack.id "+
+                     "HAVING COUNT (Product.id) < 10 "+
+                     "ORDER BY Rack.zone_id, Rack.type DESC";
         try(Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(sql)){
                 while (rs.next()) {
-                    racks.add(new Rack(
-                            rs.getString("id"),
-                            RackType.valueOf(rs.getString("type")),
-                            rs.getString("zone_id")
-                    ));
+                    var rack = new Rack(rs.getString("id"), 
+                                        RackType.valueOf(rs.getString("type")), 
+                                        rs.getString("zone_id"));
+                    rack.setCount(rs.getInt("cnt"));
+                    racks.add(rack);
                 }
         }
         return racks;
@@ -180,6 +185,47 @@ public class DatabaseManager {
                         rs.getString("rack_id")
                 ));
             }
+        }
+        return products;
+    }
+
+    /*Дописать скрипт по балансировке товара */
+    public List<Product> balanceProduct() throws SQLException{
+        List<Product> products = new ArrayList<>();
+        String sql = "SELECT * FROM Product JOIN Rack ON Rack.id = Product.rack_id WHERE Rack.type <> Product.size";
+        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (!rs.next()){
+                return null;
+            }else{
+                do {
+                    products.add(new Product(
+                            rs.getString("id"),
+                            rs.getString("name"),
+                            rs.getDouble("width"),
+                            rs.getDouble("height"),
+                            rs.getDouble("depth"),
+                            rs.getString("rack_id")
+                    ));
+                } while (rs.next());
+                
+                var freeRacks = getFreeRacks();   
+                int iteratorRack = 0;
+                Iterator<Product> iteratorProduct = products.iterator();
+                while (iteratorProduct.hasNext()) {
+                    Product product = iteratorProduct.next();
+                    while (iteratorRack < freeRacks.size()) {
+                        if (freeRacks.get(iteratorRack).getType() == product.getSize()){ //добавить проверку на count в rack и протестировать!!!
+                            product.setRackId(freeRacks.get(iteratorRack).getId());
+                            updateProduct(product);
+                            iteratorProduct.remove();
+                        }
+                        iteratorRack++;
+                    }
+                }        
+            }
+            
         }
         return products;
     }

@@ -19,7 +19,9 @@ import warehouse.model.StorageZone;
 import warehouse.model.Product.Builder;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class StorageApp extends Application {
@@ -76,7 +78,9 @@ public class StorageApp extends Application {
         depthCol.setCellValueFactory(cellData -> new javafx.beans.property.SimpleDoubleProperty(cellData.getValue().getDepth()).asObject());
         TableColumn<Product, String> rackCol = new TableColumn<>("Rack ID");
         rackCol.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getRackId()));
-        productTable.getColumns().addAll(idCol, nameCol, widthCol, heightCol, depthCol, rackCol);
+        TableColumn<Product, String> sizeCol = new TableColumn<>("Size");
+        sizeCol.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getSize().toString()));
+        productTable.getColumns().addAll(idCol, nameCol, widthCol, heightCol, depthCol, rackCol, sizeCol);
         
 
         // Загрузка данных в таблицу
@@ -153,7 +157,7 @@ public class StorageApp extends Application {
                 Product product = new Product(builderProduct);    
 
                 // Поиск подходящего стеллажа
-                List<Rack> racks = dbManager.getAllRacks();
+                List<Rack> racks = dbManager.getFreeRacks();
                 
                 for (Rack rack : racks) {
                     if (rack.getType() == product.getSize()) {
