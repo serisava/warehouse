@@ -4,15 +4,7 @@ public class Rack {
     private String id;
     private String zoneId;
     private RackType type;
-    private Integer count;
-
-    public Integer getCount() {
-        return count;
-    }
-
-    public void setCount(Integer count) {
-        this.count = count;
-    }
+    public Integer count;
 
     public Rack(String id, RackType type, String zoneId) {
         this.id = id;

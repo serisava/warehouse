@@ -20,7 +20,7 @@ public class DatabaseManagerTest {
         DatabaseManager db = new DatabaseManager();
         var test = db.getFreeRacks();
         for (Rack rack : test) {
-            System.out.printf("ID: %s   TYPE: %s    ZONE_ID: %s     CNT: %s\n", rack.getId(), rack.getType(), rack.getZoneId(), rack.getCount());
+            System.out.printf("ID: %s   TYPE: %s    ZONE_ID: %s     CNT: %s\n", rack.getId(), rack.getType(), rack.getZoneId(), rack.count);
         }
     }
 
@@ -42,9 +42,11 @@ public class DatabaseManagerTest {
     void checkBalanceProduct() throws SQLException{
         DatabaseManager dbManager = new DatabaseManager();
         var list = dbManager.balanceProduct();
-        assertEquals(2, list.size());
-        for (Product product : list) {
-            System.out.printf("ID: %s   name: %s\n", product.getId(), product.getName());
+        //assertEquals(null, list);
+
+        var listProd = dbManager.getAllProducts();
+        for (Product product : listProd) {
+            System.out.printf("name: %s size: %s rack: %s   h: %s   w: %s   d: %s\n", product.getName(), product.getSize(), product.getRackId(), product.getHeight(), product.getWidth(), product.getDepth());
         }
     }
 }

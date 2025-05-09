@@ -103,8 +103,8 @@ public class DatabaseManager {
                 products.add(new Product(
                         rs.getString("id"),
                         rs.getString("name"),
-                        rs.getDouble("width"),
                         rs.getDouble("height"),
+                        rs.getDouble("width"),
                         rs.getDouble("depth"),
                         rs.getString("rack_id")
                 ));
@@ -128,7 +128,7 @@ public class DatabaseManager {
                     var rack = new Rack(rs.getString("id"), 
                                         RackType.valueOf(rs.getString("type")), 
                                         rs.getString("zone_id"));
-                    rack.setCount(rs.getInt("cnt"));
+                    rack.count = rs.getInt("cnt");
                     racks.add(rack);
                 }
         }
@@ -209,17 +209,20 @@ public class DatabaseManager {
                             rs.getString("rack_id")
                     ));
                 } while (rs.next());
-                
+
                 var freeRacks = getFreeRacks();   
                 int iteratorRack = 0;
                 Iterator<Product> iteratorProduct = products.iterator();
                 while (iteratorProduct.hasNext()) {
                     Product product = iteratorProduct.next();
                     while (iteratorRack < freeRacks.size()) {
-                        if (freeRacks.get(iteratorRack).getType() == product.getSize()){ //добавить проверку на count в rack и протестировать!!!
+                        if (freeRacks.get(iteratorRack).getType() == product.getSize() && 
+                        freeRacks.get(iteratorRack).count < 10){
                             product.setRackId(freeRacks.get(iteratorRack).getId());
                             updateProduct(product);
                             iteratorProduct.remove();
+                            freeRacks.get(iteratorRack).count++;
+                            break;
                         }
                         iteratorRack++;
                     }

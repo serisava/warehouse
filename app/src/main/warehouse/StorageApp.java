@@ -19,9 +19,7 @@ import warehouse.model.StorageZone;
 import warehouse.model.Product.Builder;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 public class StorageApp extends Application {
@@ -134,13 +132,23 @@ public class StorageApp extends Application {
         form.add(new Label("Rack:"), 0, 4);
         form.add(rackCombo, 1, 4); // Оставляем ComboBox для редактирования
 
+        // Информация о складе
+        VBox warehouseInfoPane = new VBox(10);
+        warehouseInfoPane.setPadding(new Insets(10));
+        warehouseInfoPane.setStyle("-fx-border-color: black; -fx-border-width: 1;");
+        Label warehouseInfoLabel = new Label();
+        warehouseInfoPane.getChildren().add(new Label("Warehouse Info:"));
+        warehouseInfoPane.getChildren().add(warehouseInfoLabel);
+        updateWarehouseInfo(warehouseInfoLabel);
+
         // Кнопки управления
         Button addButton = new Button("Add Product");
         Button updateButton = new Button("Update Product");
         Button deleteButton = new Button("Delete Product");
         Button clearButton = new Button("Clear");
+        Button balanceButton = new Button("Balance");
 
-        HBox buttonBox = new HBox(10, addButton, updateButton, deleteButton, clearButton);
+        HBox buttonBox = new HBox(10, addButton, updateButton, deleteButton, clearButton, balanceButton);
 
         // Обработчики кнопок
         addButton.setOnAction(e -> {
@@ -154,13 +162,13 @@ public class StorageApp extends Application {
                 builderProduct.setDepth(Double.parseDouble(depthField.getText()));
 
                 
-                Product product = new Product(builderProduct);    
-
+                Product product = new Product(builderProduct);
                 // Поиск подходящего стеллажа
                 List<Rack> racks = dbManager.getFreeRacks();
-                
+                System.out.println("FIND RACK");
                 for (Rack rack : racks) {
                     if (rack.getType() == product.getSize()) {
+                        System.out.printf("Obj size: %s     Rack id: %s,  size: %s\n", product.getSize(), rack.getId(), rack.getType());
                         product.setRackId(rack.getId());
                         break;
                     }
@@ -175,6 +183,7 @@ public class StorageApp extends Application {
                 racks = dbManager.getFreeRacks();
                 rackCombo.setItems(FXCollections.observableArrayList(racks.stream().map(Rack::getId).toList()));
                 clearForm(nameField, widthField, heightField, depthField, rackCombo);
+                updateWarehouseInfo(warehouseInfoLabel);
             } catch (SQLException | NumberFormatException ex) {
                 showAlert("Error", "Invalid input or database error.");
             } catch (IllegalArgumentException exception) {
@@ -200,6 +209,7 @@ public class StorageApp extends Application {
                     List<Rack> racks = dbManager.getFreeRacks();
                     rackCombo.setItems(FXCollections.observableArrayList(racks.stream().map(Rack::getId).toList()));
                     clearForm(nameField, widthField, heightField, depthField, rackCombo);
+                    updateWarehouseInfo(warehouseInfoLabel);
                 } catch (SQLException | NumberFormatException ex) {
                     showAlert("Error", "Invalid input or database error.");
                 }
@@ -214,6 +224,7 @@ public class StorageApp extends Application {
                     productTable.setItems(FXCollections.observableArrayList(dbManager.getAllProducts()));
                     List<Rack> racks = dbManager.getFreeRacks();
                     rackCombo.setItems(FXCollections.observableArrayList(racks.stream().map(Rack::getId).toList()));
+                    updateWarehouseInfo(warehouseInfoLabel);
                 } catch (SQLException ex) {
                     showAlert("Error", "Database error.");
                 }
@@ -240,8 +251,28 @@ public class StorageApp extends Application {
             addButton.setVisible(true);
         });
 
+        balanceButton.setOnAction(e -> {
+
+            nameField.setText("");
+            widthField.setText("");
+            heightField.setText("");
+            depthField.setText("");
+            rackCombo.setValue("");
+            addButton.setVisible(true);
+
+            try {
+                dbManager.balanceProduct();
+                productTable.setItems(FXCollections.observableArrayList(dbManager.getAllProducts()));
+                updateWarehouseInfo(warehouseInfoLabel);
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
+        });
+
         // Правая панель (поиск, таблица, форма)
-        VBox rightPane = new VBox(10, searchBox, productTable, form, buttonBox);
+        HBox formAndInfoPane = new HBox(10, form, warehouseInfoPane);
+        VBox rightPane = new VBox(10, searchBox, productTable, formAndInfoPane, buttonBox);
+        // VBox rightPane = new VBox(10, searchBox, productTable, form, buttonBox);
         rightPane.setPrefWidth(500);
 
         // Сборка главного экрана
@@ -267,10 +298,6 @@ public class StorageApp extends Application {
                     .filter(r -> r.getZoneId().equals(zone.getId()))
                     .toList();
             List<Product> products = dbManager.getAllProducts();
-
-            // Отладочный вывод
-            System.out.println("Zone: " + zone.getName() + ", Racks found: " + racks.size());
-            System.out.println("Total products in DB: " + products.size());
 
             // Параметры масштабирования
             final double RACK_WIDTH_PX = 150; // Фиксированная ширина стеллажа в пикселях
@@ -338,6 +365,38 @@ public class StorageApp extends Application {
         root.setCenter(rackPane);
 
         return new Scene(root, 800, 600);
+    }
+
+    private void updateWarehouseInfo(Label warehouseInfoLabel) {
+        try {
+            List<Product> products = dbManager.getAllProducts();
+            List<Rack> racks = dbManager.getAllRacks();
+
+            // Общее количество товаров
+            int totalProducts = products.size();
+
+            // Занятое место (суммарный объем товаров)
+            double occupiedVolume = products.stream()
+                    .mapToDouble(p -> p.getWidth() * p.getHeight() * p.getDepth())
+                    .sum();
+
+            // Максимальный объем стеллажей
+            double totalRackVolume = racks.stream()
+                    .mapToDouble(r -> r.getType().getMaxWidth() * r.getType().getMaxHeight() * r.getType().getMaxDepth())
+                    .sum();
+
+            // Свободное место
+            double freeVolume = totalRackVolume - occupiedVolume;
+
+            warehouseInfoLabel.setText(
+                    "Total Products: " + totalProducts + "\n" +
+                    String.format("Occupied Volume: %.2f cubic meters\n", occupiedVolume) +
+                    String.format("Free Volume: %.2f cubic meters\n", freeVolume) +
+                    String.format("Total Capacity: %.2f cubic meters", totalRackVolume)
+            );
+        } catch (SQLException e) {
+            warehouseInfoLabel.setText("Error loading warehouse info.");
+        }
     }
 
     private void showProductInfo(Product product) {
